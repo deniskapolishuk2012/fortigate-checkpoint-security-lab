@@ -1,17 +1,18 @@
 # FortiGate + Check Point Security Lab
 
-Гибридная лаборатория сетевой безопасности (HQ ↔ Branch), развёрнутая в Eve-NG (192.168.120.135 / VMware NAT).
-Демонстрирует навыки уровня Network Security Engineer / SOC Analyst (мидл+):
-сегментация сети, динамическая маршрутизация, NGFW (FortiGate + Check Point), IPS/WAF,
-Site-to-Site IPsec VPN, и SIEM-конвейер FortiGate → Wazuh → Microsoft Sentinel с обнаружением реальных атак.
+A hybrid network security lab (HQ ↔ Branch) deployed in Eve-NG (192.168.120.135 / VMware NAT).
+Demonstrates mid-level+ Network Security Engineer / SOC Analyst skills:
+network segmentation, dynamic routing, NGFW (FortiGate + Check Point), IPS/WAF,
+Site-to-Site IPsec VPN, and a SIEM pipeline FortiGate → Wazuh → Microsoft Sentinel
+with detection of real attacks.
 
-> Связанные проекты:
+> Related projects:
 > - [Linux Security Lab](https://github.com/deniskapolishuk2012/linux-security-lab)
 > - [Azure Secure Foundation](https://github.com/deniskapolishuk2012/azure-secure-foundation)
 
 ---
 
-## Архитектура
+## Architecture
 
 ```mermaid
 graph TB
@@ -39,166 +40,166 @@ graph TB
     FG -->|OSPF area 0 / eBGP AS65001<->AS65002| FRR
     FG -->|VIP DNAT 8080->80, WAF| WEB
     FG <-->|"IPsec Site-to-Site<br/>(IKEv2, des-sha256, MODP2048)"| FRR
-    FG -.->|"IPsec config готов,<br/>туннель не поднялся<br/>(known limitation)"| CP
+    FG -.->|"IPsec config ready,<br/>tunnel did not come up<br/>(known limitation)"| CP
     CP --> BLAN
     CP --> BDMZ
 
     FG -->|syslog| WAZUH
     WAZUH -->|forward| SENTINEL
-    ATTACKER -.->|brute-force SSH, SQLi| FG
+    ATTACKER -.->|SSH brute-force, SQLi| FG
 ```
 
-## Топология (таблица)
+## Topology
 
-| Устройство | IP | Зона |
+| Device | IP | Zone |
 |------------|-----|------|
 | FortiGate port1 | 192.168.10.1/24 | Users GW |
-| FortiGate port2 | 192.168.20.1/24 | Servers GW / линк к frr-router |
+| FortiGate port2 | 192.168.20.1/24 | Servers GW / link to frr-router |
 | FortiGate port3 (WAN/mgmt) | 192.168.120.200/24 | VMware NAT |
 | VPC1 (VPCS) | 192.168.10.10/24 | Users |
 | frr-router ens3 | 192.168.20.20/24 | Linux BGP/OSPF router |
-| frr-router ens4 | 192.168.120.202/24 | VPN endpoint (branch-side) |
-| frr-router dummy0 | 10.99.99.1/24 | "Branch LAN" за VPN |
+| frr-router ens4 | 192.168.120.202/24 | VPN endpoint (branch side) |
+| frr-router dummy0 | 10.99.99.1/24 | "Branch LAN" behind VPN |
 | Check Point cp-branch-gw eth0 (WAN) | 192.168.120.201/24 | VMware NAT (internet) |
-| Check Point cp-branch-gw eth1 (LAN) | 192.168.40.1/24 | branch-lan сегмент |
-| Check Point cp-branch-gw eth2 (DMZ) | 192.168.30.1/24 | branch-dmz сегмент |
+| Check Point cp-branch-gw eth1 (LAN) | 192.168.40.1/24 | branch-lan segment |
+| Check Point cp-branch-gw eth2 (DMZ) | 192.168.30.1/24 | branch-dmz segment |
 | Wazuh SIEM | 192.168.120.134/24 | VMware NAT |
 | Attacker VM | 192.168.120.130/24 | VMware NAT |
 
 ---
 
-## Блок 1 — SIEM Pipeline: FortiGate → Wazuh → Microsoft Sentinel
+## Block 1 — SIEM Pipeline: FortiGate → Wazuh → Microsoft Sentinel
 
-**Цель:** базовая сегментация (Users ↔ Servers через FortiGate policy), сбор логов FortiGate в Wazuh
-и пересылка в Microsoft Sentinel, обнаружение брутфорса SSH на основе MITRE ATT&CK.
+**Goal:** basic segmentation (Users ↔ Servers via FortiGate policy), collect FortiGate logs in Wazuh
+and forward them to Microsoft Sentinel, detect SSH brute-force based on MITRE ATT&CK.
 
-- Базовая connectivity и firewall policy "Users-to-Servers" (port1 → port2)
-- FortiGate логи поступают в Wazuh через decoder `fortigate-firewall-v5`
-- Wazuh rule `81606` "Login failed" / `81619` "Multiple high traffic events"
-- Атака: `sshpass` + bash-цикл → 64 неудачные попытки SSH с Attacker VM (192.168.120.130)
-- Результат: Analytics Rule в Sentinel **"FortiGate - Repeated Admin Login Failures"**
-  (Medium severity, MITRE T1110 Brute Force / Credential Access) → 15 инцидентов в Sentinel
+- Basic connectivity and the "Users-to-Servers" firewall policy (port1 → port2)
+- FortiGate logs are ingested into Wazuh via the `fortigate-firewall-v5` decoder
+- Wazuh rules `81606` "Login failed" / `81619` "Multiple high traffic events"
+- Attack: `sshpass` + bash loop → 64 failed SSH login attempts from the Attacker VM (192.168.120.130)
+- Result: Sentinel Analytics Rule **"FortiGate - Repeated Admin Login Failures"**
+  (Medium severity, MITRE T1110 Brute Force / Credential Access) → 15 incidents in Sentinel
 
-**Грабли:** Hydra v9.6 несовместима с SSH FortiGate v8.0 → решение через `sshpass` + OpenSSH.
+**Gotcha:** Hydra v9.6 is incompatible with FortiGate v8.0 SSH → solved with `sshpass` + OpenSSH instead.
 
-| Скриншот | Описание |
+| Screenshot | Description |
 |---|---|
-| [01](screenshots/block1/01-vpcs-ping-initial-connectivity.png) | Базовая связность VPC1 → Servers |
-| [02](screenshots/block1/02-fortigate-policy-users-to-servers.png) | Firewall policy "Users-to-Servers" |
-| [03](screenshots/block1/03-wazuh-fortigate-decoder-events.png) | Логи FortiGate в Wazuh (decoder fortigate-firewall-v5) |
-| [04](screenshots/block1/04-fortigate-log-forwarding-setup.png) | Настройка пересылки логов FortiGate → Wazuh |
-| [05](screenshots/block1/05-wazuh-fortigate-decoder-search.png) | Поиск событий по decoder в Wazuh |
-| [06](screenshots/block1/06-wazuh-admin-logout-alert.png) | Алерт: Admin logout successful |
-| [07](screenshots/block1/07-wazuh-high-traffic-alert.png) | Алерт: Multiple high traffic events |
-| [08](screenshots/block1/08-wazuh-rule-81619-detail.png) | Детали правила 81619 (GDPR/HIPAA/PCI/NIST mapping) |
-| [09](screenshots/block1/09-wazuh-rule-81606-login-failed-bruteforce.png) | Rule 81606 — брутфорс SSH с Attacker VM |
-| [10](screenshots/block1/10-sentinel-incident-bruteforce.png) | Инцидент в Microsoft Sentinel (T1110 Brute Force) |
+| [01](screenshots/block1/01-vpcs-ping-initial-connectivity.png) | Basic connectivity VPC1 → Servers |
+| [02](screenshots/block1/02-fortigate-policy-users-to-servers.png) | "Users-to-Servers" firewall policy |
+| [03](screenshots/block1/03-wazuh-fortigate-decoder-events.png) | FortiGate logs in Wazuh (fortigate-firewall-v5 decoder) |
+| [04](screenshots/block1/04-fortigate-log-forwarding-setup.png) | FortiGate → Wazuh log forwarding setup |
+| [05](screenshots/block1/05-wazuh-fortigate-decoder-search.png) | Searching events by decoder in Wazuh |
+| [06](screenshots/block1/06-wazuh-admin-logout-alert.png) | Alert: Admin logout successful |
+| [07](screenshots/block1/07-wazuh-high-traffic-alert.png) | Alert: Multiple high traffic events |
+| [08](screenshots/block1/08-wazuh-rule-81619-detail.png) | Rule 81619 details (GDPR/HIPAA/PCI/NIST mapping) |
+| [09](screenshots/block1/09-wazuh-rule-81606-login-failed-bruteforce.png) | Rule 81606 — SSH brute-force from Attacker VM |
+| [10](screenshots/block1/10-sentinel-incident-bruteforce.png) | Microsoft Sentinel incident (T1110 Brute Force) |
 
 ---
 
-## Блок 2 — DNAT + WAF + детект SQL-инъекции
+## Block 2 — DNAT + WAF + SQL Injection Detection
 
-**Цель:** опубликовать внутренний веб-сервер через VIP (DNAT), включить Web Application Firewall
-в режиме proxy, провести и обнаружить SQL-инъекцию.
+**Goal:** publish an internal web server via VIP (DNAT), enable the Web Application Firewall
+in proxy mode, perform and detect a SQL injection.
 
 - VIP **"VIP-WebServer-SQLi"**: `192.168.120.200:8080` → `192.168.120.129:80`
-- Hairpin/intra-interface policy `port3 → port3`, inspection-mode **proxy**, `waf-profile default`
-- Атака: `UNION SELECT username,password FROM users` через VIP
-- Результат: HTTP 403 (WAF block page) → Wazuh rule `81620` "URL Blocked by Firewall" → видно в Sentinel
+- Hairpin/intra-interface policy `port3 → port3`, **proxy** inspection mode, `waf-profile default`
+- Attack: `UNION SELECT username,password FROM users` via the VIP
+- Result: HTTP 403 (WAF block page) → Wazuh rule `81620` "URL Blocked by Firewall" → visible in Sentinel
 
-**Грабли:** WAF на FortiGate требует proxy inspection-mode (flow-based не подходит); порядок правил
-UFW на бэкенде критичен; trial-лицензия ограничивает firewall policy до 3 (`vdom-max=3`).
+**Gotcha:** WAF on FortiGate requires proxy inspection mode (flow-based won't work); UFW rule order
+on the backend is critical; the trial license limits firewall policies to 3 (`vdom-max=3`).
 
-| Скриншот | Описание |
+| Screenshot | Description |
 |---|---|
-| [01](screenshots/block2/01-wazuh-sqli-url-blocked.png) | Wazuh: "URL Blocked by Firewall", `UNION SELECT` в full_log |
-| [02](screenshots/block2/02-fortigate-vip-waf-policy.png) | FortiGate: VIP + policy с WAF profile |
-| [03](screenshots/block2/03-waf-block-page.png) | Страница блокировки WAF в браузере |
+| [01](screenshots/block2/01-wazuh-sqli-url-blocked.png) | Wazuh: "URL Blocked by Firewall", `UNION SELECT` in full_log |
+| [02](screenshots/block2/02-fortigate-vip-waf-policy.png) | FortiGate: VIP + policy with WAF profile |
+| [03](screenshots/block2/03-waf-block-page.png) | WAF block page in browser |
 
 ---
 
-## Блок 3 — Динамическая маршрутизация: BGP + OSPF
+## Block 3 — Dynamic Routing: BGP + OSPF
 
-**Цель:** связать FortiGate и Linux-маршрутизатор (frr/FRRouting) через OSPF area 0 и установить
-eBGP-сессию между двумя автономными системами.
+**Goal:** connect FortiGate and a Linux router (frr/FRRouting) via OSPF area 0 and establish
+an eBGP session between two autonomous systems.
 
 - **OSPF area 0**: FortiGate (192.168.20.1) ↔ frr-router (192.168.20.20) — Full/DR ↔ Full/Backup
-- **eBGP**: AS 65001 (FortiGate) ↔ AS 65002 (frr-router) — маршрут `172.16.0.0/24` появился на FortiGate
+- **eBGP**: AS 65001 (FortiGate) ↔ AS 65002 (frr-router) — route `172.16.0.0/24` appears on FortiGate
 
-**Грабли:**
-- FortiGate OSPF `router-id` был `0.0.0.0` → "Process is not up" → исправлено `set router-id 192.168.20.1`
-- FRR 8.x `bgp ebgp-requires-policy` блокирует обмен маршрутами без явных policy → `no bgp ebgp-requires-policy`
+**Gotchas:**
+- FortiGate OSPF `router-id` was `0.0.0.0` → "Process is not up" → fixed with `set router-id 192.168.20.1`
+- FRR 8.x `bgp ebgp-requires-policy` blocks route exchange without explicit policies → `no bgp ebgp-requires-policy`
 
-| Скриншот | Описание |
+| Screenshot | Description |
 |---|---|
 | [01](screenshots/block3/01-frr-ospf-neighbor.png) | frr-router: OSPF neighbor Full/Backup |
 | [02](screenshots/block3/02-fortigate-ospf-interface-port2.png) | FortiGate: OSPF interface port2, State Backup |
-| [03](screenshots/block3/03-fortigate-ospf-bgp-summary-routes.png) | FortiGate: OSPF neighbor Full/DR + BGP summary + полученный маршрут 172.16.0.0/24 |
+| [03](screenshots/block3/03-fortigate-ospf-bgp-summary-routes.png) | FortiGate: OSPF neighbor Full/DR + BGP summary + received route 172.16.0.0/24 |
 | [04](screenshots/block3/04-frr-ospf-bgp-running-config.png) | frr-router: advertised-routes + running-config (router bgp 65002 / router ospf) |
 
 ---
 
-## Блок 4 — Check Point R81.20 (Branch Firewall) + Site-to-Site VPN
+## Block 4 — Check Point R81.20 (Branch Firewall) + Site-to-Site VPN
 
 ### 4.1 Deploy + SmartConsole
 
-- VM: QEMU `cpsg-r8120` в Eve-NG, Check Point R81.20 build 634, Open Server, режим Standalone
+- VM: QEMU `cpsg-r8120` in Eve-NG, Check Point R81.20 build 634, Open Server, Standalone mode
   (Security Gateway + Management), hostname `cp-branch-gw`
-- Интерфейсы: eth0 → internet (External, WAN), eth1 → branch-lan (Internal, 192.168.40.0/24),
+- Interfaces: eth0 → internet (External, WAN), eth1 → branch-lan (Internal, 192.168.40.0/24),
   eth2 → branch-dmz (Internal + DMZ, 192.168.30.0/24)
-- SmartConsole: Topology настроена (External/Internal/DMZ), Anti-Spoofing Prevent/Log на всех интерфейсах
+- SmartConsole: Topology configured (External/Internal/DMZ), Anti-Spoofing Prevent/Log on all interfaces
 
 ### 4.2–4.4 Object Management, Security Policy, NAT
 
-- Network/Host objects, группы и сервисы под топологию HQ ↔ Branch
+- Network/Host objects, groups and services matching the HQ ↔ Branch topology
 - Security Policy: Stealth rule, VPN traffic, Branch LAN out, DMZ Web, Cleanup,
-  Application Control (блокировка P2P/torrent)
-- NAT: Hide NAT для Branch-LAN, Static NAT для DMZ веб-сервера
+  Application Control (block P2P/torrent)
+- NAT: Hide NAT for Branch-LAN, Static NAT for the DMZ web server
 
 ### 4.7 Policy Install Workflow
 
-- Verify → Install Policy → **Succeeded** на `cp-branch-gw`
+- Verify → Install Policy → **Succeeded** on `cp-branch-gw`
 
-| Скриншот | Описание |
+| Screenshot | Description |
 |---|---|
 | [01](screenshots/block4/01-checkpoint-network-objects.png) | SmartConsole: Network objects (hq-networks, branch-lan, branch-dmz, hq-servers, hq-users, fortigate-hq, wazuh-siem) |
 | [02](screenshots/block4/02-checkpoint-policy-install-success.png) | SmartConsole: Install Policy — Succeeded |
 
 ### 4.5 Site-to-Site IPsec VPN
 
-**Изначальный план:** IPsec Site-to-Site VPN FortiGate ↔ Check Point R81.20 (IKEv2, AES-256, SHA-256, VPN Community).
+**Original plan:** IPsec Site-to-Site VPN FortiGate ↔ Check Point R81.20 (IKEv2, AES-256, SHA-256, VPN Community).
 
-**Known limitation:** Phase1/Phase2/VPN Community/policy на Check Point настроены полностью, но туннель
-не поднимается из-за низкоуровневого бага `iked`/CoreXL в виртуализации Eve-NG/QEMU
+**Known limitation:** Phase1/Phase2/VPN Community/policy on Check Point are fully configured, but the tunnel
+does not come up due to a low-level `iked`/CoreXL bug in the Eve-NG/QEMU virtualization
 (`cpopen: cpdev is not initialized`, `vpnd_ioctl VPN_INIT_COMMUNITIES_LIST failed`, `NO_PROPOSAL_CHOSEN`
-даже после отключения CoreXL через `cpconfig` и перезагрузки). Конфигурация задокументирована как
-демонстрация компетенции по настройке Check Point VPN, при этом сама причина — инфраструктурный баг
-виртуального окружения, а не ошибка конфигурации.
+even after disabling CoreXL via `cpconfig` and rebooting). The configuration is documented as
+proof of Check Point VPN configuration competency, while the root cause is an infrastructure bug
+of the virtual environment, not a configuration error.
 
-**Рабочая альтернатива:** Site-to-Site IPsec VPN **FortiGate ↔ frr-router (strongSwan)**, полностью поднят и проверен:
+**Working alternative:** Site-to-Site IPsec VPN **FortiGate ↔ frr-router (strongSwan)**, fully established and verified:
 
-- frr-router получил второй интерфейс `ens4 = 192.168.120.202/24` (тот же сегмент, что FortiGate `port3 = 192.168.120.200`)
-- `dummy0` на frr-router = `10.99.99.1/24` ("branch LAN")
+- frr-router got a second interface `ens4 = 192.168.120.202/24` (same segment as FortiGate `port3 = 192.168.120.200`)
+- `dummy0` on frr-router = `10.99.99.1/24` ("branch LAN")
 - FortiGate `phase1-interface "ToLinuxBranch"` (port3, IKEv2, remote-gw 192.168.120.202)
   + `phase2-interface "ToLinuxBranch-P2"` (src `192.168.10.0/24` ↔ dst `10.99.99.0/24`)
-- Туннель **ESTABLISHED**: `DES_CBC / HMAC_SHA2_256_128 / PRF_HMAC_SHA2_256 / MODP_2048`, CHILD_SA INSTALLED
-- Подтверждено: `ping 192.168.10.10 → 10.99.99.1` проходит через туннель (TTL=63)
+- Tunnel **ESTABLISHED**: `DES_CBC / HMAC_SHA2_256_128 / PRF_HMAC_SHA2_256 / MODP_2048`, CHILD_SA INSTALLED
+- Verified: `ping 192.168.10.10 → 10.99.99.1` traverses the tunnel (TTL=63)
 
-**Грабли:**
-- Trial-лицензия FortiGate VM режет crypto-предложения до DES — `set proposal aes256-sha256` молча
-  заменяется на `des-md5`/`des-sha1`. Рабочий proposal — `des-sha256` на обеих сторонах
+**Gotchas:**
+- The FortiGate VM trial license downgrades crypto proposals to DES — `set proposal aes256-sha256` is silently
+  replaced with `des-md5`/`des-sha1`. The working proposal is `des-sha256` on both sides
   (strongSwan: `ike=des-sha256-modp2048!`, `esp=des-sha256-modp2048!`)
-- Trial-лицензия также режет firewall policy (`vdom-max=3`) — новые policy создать нельзя,
-  вместо этого интерфейс `ToLinuxBranch` добавлен в `srcintf`/`dstintf` существующей policy 3
-- strongSwan `ipsec rereadall` не подхватывает изменения `ike=`/`esp=` для уже загруженного conn —
-  требуется полный `ipsec restart`
+- The trial license also limits firewall policies (`vdom-max=3`) — new policies cannot be created,
+  so the `ToLinuxBranch` interface was added to the `srcintf`/`dstintf` of the existing policy 3 instead
+- strongSwan `ipsec rereadall` does not pick up `ike=`/`esp=` changes for an already-loaded conn —
+  a full `ipsec restart` is required
 
-| Скриншот | Описание |
+| Screenshot | Description |
 |---|---|
 | [03](screenshots/block4/03-strongswan-ipsec-statusall-established.png) | strongSwan `ipsec statusall` — ESTABLISHED, CHILD_SA INSTALLED |
-| [04](screenshots/block4/04-strongswan-ipsec-conf.png) | `/etc/ipsec.conf` — конфигурация туннеля ToFortiGate |
+| [04](screenshots/block4/04-strongswan-ipsec-conf.png) | `/etc/ipsec.conf` — ToFortiGate tunnel configuration |
 | [05](screenshots/block4/05-fortigate-ipsec-phase1-phase2-routes.png) | FortiGate: phase1/phase2-interface, tunnel summary, routing table |
-| [06](screenshots/block4/06-vpcs-ping-through-vpn-tunnel.png) | VPC1 → 10.99.99.1 через VPN-туннель (TTL=63) |
+| [06](screenshots/block4/06-vpcs-ping-through-vpn-tunnel.png) | VPC1 → 10.99.99.1 through the VPN tunnel (TTL=63) |
 
 ---
 
@@ -212,15 +213,15 @@ sequenceDiagram
     participant S as Microsoft Sentinel
 
     rect rgb(240, 230, 230)
-    Note over A,S: Сценарий 1 — SSH Brute Force (Block 1)
-    A->>FG: 64x SSH login (sshpass, неверные креды)
+    Note over A,S: Scenario 1 — SSH Brute Force (Block 1)
+    A->>FG: 64x SSH login (sshpass, invalid credentials)
     FG->>W: syslog: "Administrator admin login failed... max login failures exceeded" (rule 81606)
     W->>S: forward event
     S->>S: Analytics Rule "Repeated Admin Login Failures"<br/>MITRE T1110 Brute Force → Incident (Medium)
     end
 
     rect rgb(230, 240, 230)
-    Note over A,S: Сценарий 2 — SQL Injection через VIP + WAF (Block 2)
+    Note over A,S: Scenario 2 — SQL Injection via VIP + WAF (Block 2)
     A->>FG: HTTP GET .../?id=1 UNION SELECT username,password FROM users<br/>(VIP 192.168.120.200:8080)
     FG-->>A: HTTP 403 (WAF block page)
     FG->>W: syslog: "URL Blocked by Firewall" (rule 81620)
@@ -230,15 +231,15 @@ sequenceDiagram
 
 ---
 
-## Технологии
+## Technologies
 
 `FortiGate` `Check Point R81.20` `strongSwan` `IPsec/IKEv2` `BGP` `OSPF` `FRRouting` `WAF` `IPS`
 `DNAT/VIP` `Wazuh` `Microsoft Sentinel` `MITRE ATT&CK` `Eve-NG`
 
-## Фраза для собеседования
+## Interview pitch
 
-> Я построил гибридный Security Lab: FortiGate как HQ файервол с сегментацией, IPS, WAF, DNAT.
-> Site-to-Site IPsec VPN с Linux/strongSwan-узлом (плюс полная конфигурация Check Point VPN —
-> туннель не поднялся из-за бага виртуализации, задокументировано как known limitation).
-> BGP/OSPF динамическая маршрутизация. Все события собираются в Wazuh и пересылаются в
-> Microsoft Sentinel. Два сценария атак с полной цепочкой обнаружения (SSH brute-force, SQL injection).
+> I built a hybrid security lab: FortiGate as the HQ firewall with segmentation, IPS, WAF, and DNAT.
+> A Site-to-Site IPsec VPN to a Linux/strongSwan node (plus a complete Check Point VPN configuration —
+> the tunnel didn't come up due to a virtualization bug, documented as a known limitation).
+> BGP/OSPF dynamic routing. All events are collected in Wazuh and forwarded to
+> Microsoft Sentinel. Two attack scenarios with full detection chains (SSH brute-force, SQL injection).
