@@ -203,6 +203,28 @@ of the virtual environment, not a configuration error.
 
 ---
 
+## Block 6 — Automation: FortiGate REST API
+
+**Goal:** a reusable Python client for the FortiOS v2 REST API that any future automation
+script can build on - e.g. a SOAR playbook or Wazuh active-response hook banning an
+attacker IP with one call, instead of clicking through the GUI.
+
+- `automation/fortigate/fortigate_api.py` — small reusable client for the FortiOS v2 REST API
+  (token auth, system status, config backup, firewall address objects, address groups)
+- Plug in your FortiGate's host/token via `config.json` and write any script on top of it:
+  ```python
+  from fortigate_api import FortiGateAPI
+  fg = FortiGateAPI(host="192.168.120.200", token="...")
+  fg.create_address("blocked-192.168.120.130", "192.168.120.130", comment="SSH brute-force source")
+  fg.add_to_addrgrp("Blocked-IPs", "blocked-192.168.120.130")
+  ```
+- `automation/fortigate/backup_config.py` — snapshots the full running config to
+  `backups/fortigate-<timestamp>.conf` before trying out policy/VLAN/routing changes,
+  so a broken experiment can be restored
+- Setup (API admin/token creation) — see [automation/fortigate/README.md](automation/fortigate/README.md)
+
+---
+
 ## Attack Pipeline
 
 ```mermaid
@@ -234,7 +256,7 @@ sequenceDiagram
 ## Technologies
 
 `FortiGate` `Check Point R81.20` `strongSwan` `IPsec/IKEv2` `BGP` `OSPF` `FRRouting` `WAF` `IPS`
-`DNAT/VIP` `Wazuh` `Microsoft Sentinel` `MITRE ATT&CK` `Eve-NG`
+`DNAT/VIP` `Wazuh` `Microsoft Sentinel` `MITRE ATT&CK` `Eve-NG` `Python` `REST API`
 
 ## Interview pitch
 
