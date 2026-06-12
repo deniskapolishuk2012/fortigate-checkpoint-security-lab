@@ -219,8 +219,9 @@ attacker IP with one call, instead of clicking through the GUI.
   fg.add_to_addrgrp("Blocked-IPs", "blocked-192.168.120.130")
   ```
 - `automation/fortigate/backup_config.py` — snapshots the full running config to
-  `backups/fortigate-<timestamp>.conf` before trying out policy/VLAN/routing changes,
-  so a broken experiment can be restored
+  `backups/fortigate-<timestamp>.conf` before trying out policy/VLAN/routing changes
+- `automation/fortigate/restore_config.py` — restores a saved config back onto the
+  FortiGate (with a confirmation prompt) if an experiment breaks something
 - Setup (API admin/token creation) — see [automation/fortigate/README.md](automation/fortigate/README.md)
 
 ---

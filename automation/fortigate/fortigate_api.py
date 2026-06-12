@@ -74,6 +74,26 @@ class FortiGateAPI:
         resp.raise_for_status()
         return resp.text
 
+    def restore_config(self, config_text, scope="global"):
+        """Upload a configuration file to restore the FortiGate config.
+
+        WARNING: this overwrites the running configuration and the
+        FortiGate may reboot/drop the session as a result. Multipart
+        upload, so it bypasses _request()'s JSON Content-Type header.
+        """
+        url = f"{self.base_url}/monitor/system/config/restore"
+        files = {"file": ("restore.conf", config_text, "text/plain")}
+        resp = requests.post(
+            url,
+            headers={"Authorization": f"Bearer {self.token}"},
+            params={"scope": scope},
+            files=files,
+            verify=self.verify,
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
     # --- firewall address objects ---
 
     def get_address(self, name):

@@ -67,12 +67,22 @@ python backup_config.py
 ```
 
 Saves the full running config to `backups/fortigate-<timestamp>.conf`
-(gitignored - contains ENC-encrypted secrets). To restore, upload the file
-via System > Firmware & Configuration > Restore in the GUI, or
-`execute restore config` on the CLI.
+(gitignored - contains ENC-encrypted secrets).
+
+## Restoring a backup
+
+```bash
+python restore_config.py backups/fortigate-2026-06-12_153000.conf
+```
+
+Prompts for confirmation before uploading - **this overwrites the running
+config and the FortiGate may reboot / drop the API session**. Alternatively
+restore manually via System > Firmware & Configuration > Restore in the GUI,
+or `execute restore config` on the CLI.
 
 ## Files
 
-- `fortigate_api.py` - generic REST client (auth, system status, config backup, firewall address objects, address groups)
+- `fortigate_api.py` - generic REST client (auth, system status, config backup/restore, firewall address objects, address groups)
 - `backup_config.py` - downloads the running config with a timestamp into `backups/`
+- `restore_config.py` - restores a config file back onto the FortiGate (with confirmation prompt)
 - `config.example.json` - config template (`config.json` is gitignored)
