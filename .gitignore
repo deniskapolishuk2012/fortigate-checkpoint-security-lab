@@ -1,9 +1,3 @@
 # FortiGate full config backups - contain ENC-encrypted secrets/PSK, must not be committed
 fg-hq-backup.conf
 fg-hq-backup-vpn.conf
-
-# Automation configs with API tokens/credentials - must not be committed
-automation/**/config.json
-
-# Config backups downloaded via automation - contain ENC-encrypted secrets/PSK
-automation/**/backups/
