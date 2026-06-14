@@ -91,6 +91,13 @@
 - [x] 5.4 Attack pipeline диаграмма
 - [x] 5.5 Все скриншоты
 
+### ✅ Блок 6 — NAC: FortiGate Captive Portal (завершён 2026-06-14)
+- port1 (Users-LAN) → `security-mode captive-portal` + `security-groups "Captive-Portal-Users"`, юзер `labuser`
+- Attacker VM (отдельная VMware VM, 192.168.120.130) подключена к сегменту Users-LAN через второй Eve-NG Cloud (тот же pnet, что у "internet"), alias IP 192.168.10.50/24 + маршрут до 192.168.20.0/24 через 192.168.10.1
+- До авторизации: curl → JS-redirect на `fgtauth`; после POST логина → 303 редирект на исходный URL; `diagnose firewall auth list` показывает активную сессию labuser
+- **Грабли:** Attacker VM — отдельная VMware VM, не нода Eve-NG → нельзя напрямую подключить к внутреннему сегменту; решение — второй Cloud-узел (Management/Cloud0), мостящий Users-LAN на тот же VMware NAT, где сидит Attacker VM
+- Скриншоты: screenshots/block5/
+
 ---
 
 ## Фраза для собеседования

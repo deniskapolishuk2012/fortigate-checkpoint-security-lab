@@ -203,6 +203,38 @@ of the virtual environment, not a configuration error.
 
 ---
 
+## Block 5 — Network Access Control (NAC): FortiGate Captive Portal
+
+**Goal:** demonstrate identity-based network access control — an unauthenticated client on the
+Users-LAN segment must authenticate via a captive portal before its traffic is allowed through
+the firewall.
+
+- `port1` (Users-LAN, 192.168.10.0/24) configured with `set security-mode captive-portal` and
+  `set security-groups "Captive-Portal-Users"`
+- User `labuser` created in local user group `Captive-Portal-Users`
+- Test client: Attacker VM (192.168.120.130, standalone VMware host) bridged onto the
+  Users-LAN L2 segment via a second Eve-NG Cloud (Management/Cloud0) node, using an alias IP
+  `192.168.10.50/24` on `ens33` and a static route to `192.168.20.0/24` via `192.168.10.1`
+- **Before auth:** `curl http://192.168.20.20/` → `HTTP/1.1 200 OK` with a JS redirect to
+  `http://192.168.10.1:1000/fgtauth?<magic>` (captive portal login page)
+- **Login:** `curl -X POST http://192.168.10.1:1000/` with `username=labuser`,
+  `password=...` and the `magic` token → `HTTP/1.1 303 See Other`, `Location: http://192.168.20.20/`
+- **Confirmation:** `diagnose firewall auth list` on FortiGate shows an active session for
+  `192.168.10.50, labuser`, `group_name: Captive-Portal-Users`
+
+**Gotcha:** the Attacker VM is a standalone VMware VM, not an Eve-NG topology node — it cannot
+be wired directly into an internal Eve-NG segment. Fix: add a second Eve-NG Cloud (same type/pnet
+as the existing "internet" cloud) and connect it to the Users-LAN segment, bridging it onto the
+same VMware NAT network the Attacker VM is on.
+
+| Screenshot | Description |
+|---|---|
+| [01](screenshots/block5/01-captive-portal-redirect-before-auth.png) | Unauthenticated request → JS redirect to `fgtauth` captive portal page |
+| [02](screenshots/block5/02-captive-portal-login-post-303.png) | POST login (`labuser`) → `303 See Other`, redirect back to original destination |
+| [03](screenshots/block5/03-fortigate-auth-list-active-session.png) | `diagnose firewall auth list` — active session, `group_name: Captive-Portal-Users` |
+
+---
+
 ## Attack Pipeline
 
 ```mermaid
