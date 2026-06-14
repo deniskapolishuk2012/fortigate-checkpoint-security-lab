@@ -248,6 +248,10 @@ project bugs, since each was diagnosed down to the root cause:
   rejecting a 4th policy with "reached the maximum number of entries".
 - **IPsec crypto downgrade** — Phase 1/2 negotiation falls back to DES-only ciphers on this
   build, limiting the Site-to-Site VPN to weaker encryption than configured.
+- **Check Point Site-to-Site VPN** — configured a full VPN Community on the Check Point side
+  (Phase1/Phase2, policy), but the tunnel is blocked by an Eve-NG/QEMU virtualization bug
+  (`cpdev is not initialized`). A working alternative was implemented instead: Site-to-Site
+  IPsec VPN FortiGate ↔ frr-router (strongSwan) — see [4.5](#45-site-to-site-ipsec-vpn).
 
 ## Technologies
 
