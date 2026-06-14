@@ -84,12 +84,12 @@
 - [ ] 4.6 Logs & Monitor: SmartView, единая цепочка CP→Wazuh→Sentinel
 - [x] 4.7 Policy Install Workflow: Verify → Install → скриншот
 
-### ⏳ Блок 5 — Документация
-- [ ] 5.1 GitHub репозиторий
-- [ ] 5.2 README с архитектурой
-- [ ] 5.3 Network diagram
-- [ ] 5.4 Attack pipeline диаграмма
-- [ ] 5.5 Все скриншоты
+### ✅ Блок 5 — Документация (завершён)
+- [x] 5.1 GitHub репозиторий
+- [x] 5.2 README с архитектурой
+- [x] 5.3 Network diagram (mermaid в README)
+- [x] 5.4 Attack pipeline диаграмма
+- [x] 5.5 Все скриншоты
 
 ---
 

@@ -231,6 +231,24 @@ sequenceDiagram
 
 ---
 
+## Known Limitations (Trial License)
+
+This lab runs on a trial-licensed `FortiGate-VM64-KVM v8.0.0,build0167`. A few features were
+configured correctly but blocked at the license/build level — documented here rather than as
+project bugs, since each was diagnosed down to the root cause:
+
+- **REST API token auth** — every call returns `401` / `error="invalid_token"`, even with a
+  correctly configured `system api-user` (`accprofile` with `fwgrp`/`sysgrp` set to
+  `read-write`, trusthost opened to any source, freshly generated key). Session-based
+  `/logincheck` auth also fails to return a session cookie.
+- **SSL-VPN** — `config vpn ssl settings` accepts the configuration, but the `sslvpnd` daemon
+  doesn't exist in this build (`diagnose test application sslvpnd` → command not recognized,
+  no listener on the configured port). Consistent with Fortinet's ongoing SSL-VPN deprecation.
+- **Firewall policy limit** — hard cap of 3 policies (`vdom-max=3`), confirmed by FortiOS
+  rejecting a 4th policy with "reached the maximum number of entries".
+- **IPsec crypto downgrade** — Phase 1/2 negotiation falls back to DES-only ciphers on this
+  build, limiting the Site-to-Site VPN to weaker encryption than configured.
+
 ## Technologies
 
 `FortiGate` `Check Point R81.20` `strongSwan` `IPsec/IKEv2` `BGP` `OSPF` `FRRouting` `WAF` `IPS`
