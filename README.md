@@ -261,6 +261,14 @@ sequenceDiagram
     end
 ```
 
+### MITRE ATT&CK Mapping
+
+| Scenario | Technique | Tactic | Detection |
+|---|---|---|---|
+| SSH Brute Force (Block 1) | T1110 — Brute Force | TA0006 — Credential Access | Wazuh rule `81606` → Sentinel "Repeated Admin Login Failures" incident |
+| SQL Injection via VIP/WAF (Block 2) | T1190 — Exploit Public-Facing Application | TA0001 — Initial Access | Wazuh rule `81620` → WAF block page (HTTP 403) |
+| Unauthenticated access to Users-LAN (Block 5) | T1133 — External Remote Services | TA0001 — Initial Access | Captive portal redirect + `diagnose firewall auth list` — access denied until authenticated |
+
 ---
 
 ## Known Limitations (Trial License)
