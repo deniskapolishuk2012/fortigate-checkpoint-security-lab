@@ -203,7 +203,7 @@ of the virtual environment, not a configuration error.
 
 ---
 
-## Block 5 — Network Access Control (NAC): FortiGate Captive Portal
+## Block 5 — NAC: Identity-Based Access Control (FortiGate Captive Portal)
 
 **Goal:** demonstrate identity-based network access control — an unauthenticated client on the
 Users-LAN segment must authenticate via a captive portal before its traffic is allowed through
@@ -288,7 +288,7 @@ project bugs, since each was diagnosed down to the root cause:
 ## Technologies
 
 `FortiGate` `Check Point R81.20` `strongSwan` `IPsec/IKEv2` `BGP` `OSPF` `FRRouting` `WAF` `IPS`
-`DNAT/VIP` `Wazuh` `Microsoft Sentinel` `MITRE ATT&CK` `Eve-NG`
+`DNAT/VIP` `NAC` `Wazuh` `Microsoft Sentinel` `MITRE ATT&CK` `Eve-NG`
 
 ## Interview pitch
 
@@ -297,3 +297,5 @@ project bugs, since each was diagnosed down to the root cause:
 > the tunnel didn't come up due to a virtualization bug, documented as a known limitation).
 > BGP/OSPF dynamic routing. All events are collected in Wazuh and forwarded to
 > Microsoft Sentinel. Two attack scenarios with full detection chains (SSH brute-force, SQL injection).
+> Identity-based NAC via FortiGate Captive Portal — unauthenticated clients on Users-LAN
+> are redirected and blocked until credentials are verified.
